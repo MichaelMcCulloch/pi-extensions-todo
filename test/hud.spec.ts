@@ -22,6 +22,10 @@ describe("todo hud renderers", () => {
     expect(lines.some((line) => line.includes("first"))).toBe(true);
   });
 
+  it("omits numbers, ids, heaps, and dependencies from the widget", () => {
+    expect(renderTodoBoard(withItems().state, "dark")).toEqual(["todo · 2 live · 0 done", "⚪ first", "⚪ second"]);
+  });
+
   it("includes terminal history only in the detail view", () => {
     const store = withItems();
     store.apply({ type: "mark", id: "a", status: "completed" });
@@ -45,5 +49,15 @@ describe("TodoWidget", () => {
 
   it("renders nothing when empty", () => {
     expect(new TodoWidget(() => []).render(30)).toEqual([]);
+  });
+
+  it("activates on a left click", () => {
+    let clicks = 0;
+    const widget = new TodoWidget(() => ["one"], 12, () => {
+      clicks += 1;
+    });
+    const event = { type: "click", button: "left", x: 1, y: 1, screenX: 1, screenY: 1, width: 30, height: 1, shift: false, alt: false, ctrl: false } as const;
+    expect(widget.handleMouse(event)).toEqual({ handled: true });
+    expect(clicks).toBe(1);
   });
 });

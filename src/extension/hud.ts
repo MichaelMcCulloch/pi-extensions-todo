@@ -7,8 +7,8 @@
  */
 
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, type Component, type TUI } from "@earendil-works/pi-tui";
-import { presentation, renderList, resolveTheme, type Theme as TodoTheme } from "../engine/projection.ts";
+import { Key, matchesKey, truncateToWidth, type Component, type TUI, type TuiMouseEvent, type TuiMouseEventResult } from "@earendil-works/pi-tui";
+import { presentation, renderList, resolveTheme, statusCounts, statusGlyph, type Theme as TodoTheme } from "../engine/projection.ts";
 import { isLive, type TodoState } from "../engine/state.ts";
 
 /** Nothing to show: no live items and no terminal history. */
@@ -20,9 +20,23 @@ export function isTodoEmpty(state: TodoState): boolean {
   });
 }
 
-/** The compact widget body: the live list, without terminal history. */
+/**
+ * The compact widget body: glyph + text for each live item, and nothing else.
+ * Numbers, item ids, heap membership, dependencies, and notes are internal and
+ * belong in the explorer, not the always-on view.
+ */
 export function renderTodoBoard(state: TodoState, theme: TodoTheme = resolveTheme()): string[] {
-  return renderList(state, theme, { includeTerminal: false }).split("\n");
+  const live = presentation(state);
+  const counts = statusCounts(state);
+  const parts = [`${live.length} live`, `${counts.completed + counts.completed_with_errors} done`];
+  if (counts.blocked > 0) parts.push(`${counts.blocked} blocked`);
+  if (counts.failed > 0) parts.push(`${counts.failed} failed`);
+  const lines = [`todo · ${parts.join(" · ")}`];
+  for (const item of live) {
+    const status = state.status[item] ?? "pending";
+    lines.push(`${statusGlyph(status, theme)} ${state.texts[item] ?? ""}`);
+  }
+  return lines;
 }
 
 /** The full explorer body: the live list and the terminal history. */
@@ -35,17 +49,26 @@ export class TodoWidget implements Component {
   public constructor(
     private readonly lines: () => string[],
     private readonly maxLines = 12,
+    private readonly onActivate?: () => void,
   ) {}
 
   public invalidate(): void {
     // Rendering reads the live list each frame.
   }
 
+  public handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+    if (event.type === "click" && event.button === "left" && this.onActivate !== undefined) {
+      this.onActivate();
+      return { handled: true };
+    }
+    return undefined;
+  }
+
   public render(width: number): string[] {
     const body = this.lines();
     if (body.length === 0) return [];
     const shown = body.slice(0, this.maxLines);
-    if (body.length > this.maxLines) shown.push(`… +${body.length - this.maxLines} more — /todo`);
+    if (body.length > this.maxLines) shown.push(`… +${body.length - this.maxLines} more — click to open`);
     return shown.map((line) => truncateToWidth(line, width, "…", true));
   }
 }

@@ -58,7 +58,11 @@ export default function todoExtension(pi: ExtensionAPI): void {
     if (!widgetInstalled) {
       ctx.ui.setWidget(WIDGET_KEY, (tui) => {
         widgetTui = tui;
-        return new TodoWidget(() => renderTodoBoard(getStore(ctx).state));
+        return new TodoWidget(
+          () => renderTodoBoard(getStore(ctx).state),
+          12,
+          () => void openExplorer(currentCtx ?? ctx),
+        );
       });
       widgetInstalled = true;
     }
@@ -99,6 +103,20 @@ export default function todoExtension(pi: ExtensionAPI): void {
 
   pi.registerTool(buildTodoTool(getStore));
 
+  const openExplorer = async (ctx: ExtensionContext): Promise<void> => {
+    if (ctx.mode !== "tui" || !ctx.hasUI) return;
+    await ctx.ui.custom<undefined>(
+      (tui, theme, _keybindings, done) =>
+        new TodoExplorer(
+          () => renderTodoDetail(getStore(ctx).state),
+          tui,
+          () => ctx.ui.theme,
+          () => done(undefined),
+        ),
+      { overlay: true, overlayOptions: { width: "92%", maxHeight: "92%", anchor: "center", margin: 1 } },
+    );
+  };
+
   pi.registerCommand("todo", {
     description: "Show the dependency-ordered todo list; open the scrollable explorer",
     handler: async (_args, ctx) => {
@@ -106,16 +124,7 @@ export default function todoExtension(pi: ExtensionAPI): void {
         ctx.ui.notify(renderTodoDetail(getStore(ctx).state).join("\n"), "info");
         return;
       }
-      await ctx.ui.custom<undefined>(
-        (tui, theme, _keybindings, done) =>
-          new TodoExplorer(
-            () => renderTodoDetail(getStore(ctx).state),
-            tui,
-            () => ctx.ui.theme,
-            () => done(undefined),
-          ),
-        { overlay: true, overlayOptions: { width: "92%", maxHeight: "92%", anchor: "center", margin: 1 } },
-      );
+      await openExplorer(ctx);
     },
   });
 }
