@@ -196,6 +196,13 @@ Every item's live dependencies are annotated as `waiting on ...`; refusals are
 structured (`todo-order-veto`, `todo-remove-veto`, `todo-transition-refused`,
 …), not prose.
 
+## Terminal UI
+
+While the list has content, a compact widget above the editor shows the live,
+automatically prioritized list; it repaints whenever the store persists a
+snapshot. `/todo` opens the full list in a scrollable overlay, including
+terminal history. No other extension is involved.
+
 ## Layout
 
 ```
