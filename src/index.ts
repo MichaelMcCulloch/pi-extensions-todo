@@ -56,12 +56,13 @@ export default function todoExtension(pi: ExtensionAPI): void {
       return;
     }
     if (!widgetInstalled) {
-      ctx.ui.setWidget(WIDGET_KEY, (tui) => {
+      ctx.ui.setWidget(WIDGET_KEY, (tui, theme) => {
         widgetTui = tui;
         return new TodoWidget(
           () => renderTodoBoard(getStore(ctx).state),
           12,
           () => void openExplorer(currentCtx ?? ctx),
+          () => currentCtx?.ui.theme ?? theme,
         );
       });
       widgetInstalled = true;
