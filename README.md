@@ -192,9 +192,10 @@ One tool with an `action` discriminator; state is stored in the pi session as a
 | `clear` | remove terminal items not referenced by live work |
 | `list` / `status` | render the automatically prioritized linear list and counts |
 
-Every item's live dependencies are annotated as `waiting on ...`; refusals are
-structured (`todo-order-veto`, `todo-remove-veto`, `todo-transition-refused`,
-…), not prose.
+Every item's live dependencies are annotated as `waiting on ...`. A refused
+operation throws a tool error whose message carries the stable code
+(`todo-order-veto`, `todo-remove-veto`, `todo-transition-refused`, …) plus the
+reason, so the agent sees the call fail rather than a successful-looking reply.
 
 ## Terminal UI
 

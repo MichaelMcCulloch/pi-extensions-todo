@@ -47,7 +47,6 @@ const TodoParams = Type.Object({
 interface TodoDetails {
   readonly action: string;
   readonly revision: number;
-  readonly error?: string;
   readonly theme: Theme;
   readonly presentation?: readonly string[];
   readonly heaps?: readonly (readonly string[])[];
@@ -108,18 +107,11 @@ export function buildTodoTool(getStore: (ctx: ExtensionContext) => TodoStore): T
         };
       } catch (error) {
         if (error instanceof TodoOperationError) {
-          return {
-            content: [{ type: "text", text: `todo ${params.action} refused: ${error.message}` }],
-            details: {
-              action: params.action,
-              revision: store.state.revision,
-              theme,
-              error: error.code,
-              presentation: presentation(store.state),
-              heaps: heaps(store.state),
-              counts: statusCounts(store.state),
-            },
-          };
+          // The agent runtime only marks a tool result as an error when
+          // `execute` throws; a refusal returned as ordinary content is
+          // reported to the model as success. Rethrow with the action and the
+          // stable code so the failure is visible and actionable.
+          throw new TodoOperationError(error.code, `todo ${params.action} refused (${error.code}): ${error.message}`);
         }
         throw error;
       }

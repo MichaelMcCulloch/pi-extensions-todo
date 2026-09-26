@@ -29,13 +29,31 @@ describe("todo tool", () => {
     expect(listed.content[0]?.type === "text" && listed.content[0].text).toContain("waiting on i1");
   });
 
-  it("returns a refusal instead of throwing", async () => {
+  it("surfaces a refusal as a thrown tool error so the agent sees the fault", async () => {
     const call = toolOn(memoryTodo());
     await call({ action: "add", text: "root", id: "i1" });
     await call({ action: "add", text: "child", id: "i2", deps: ["i1"] });
-    const refused = await call({ action: "order", id: "i2", position: 1 });
-    expect(refused.details.error).toBe("todo-order-veto");
-    expect(refused.content[0]?.type === "text" && refused.content[0].text).toContain("refused");
+    // Returning the refusal as content would be recorded as a successful call
+    // (`isError: false`); throwing is the only way to signal failure.
+    await expect(call({ action: "order", id: "i2", position: 1 })).rejects.toThrow(/todo-order-veto/);
+  });
+
+  it("surfaces a refused add as a thrown tool error", async () => {
+    const call = toolOn(memoryTodo());
+    await call({ action: "add", text: "root", id: "i1" });
+    await expect(call({ action: "add", text: "duplicate", id: "i1" })).rejects.toThrow(/todo-id-in-use/);
+    await expect(call({ action: "add", text: "orphan", deps: ["missing"] })).rejects.toThrow(/todo-transition-refused/);
+  });
+
+  it("persists a payload-only edit instead of reporting a no-op", async () => {
+    const store = memoryTodo();
+    const call = toolOn(store);
+    await call({ action: "add", text: "old", id: "i1" });
+    await call({ action: "edit", id: "i1", text: "new", note: "a note" });
+    expect(store.state.texts["i1"]).toBe("new");
+    expect(store.state.notes["i1"]).toBe("a note");
+    const listed = await call({ action: "list" });
+    expect(listed.content[0]?.type === "text" && listed.content[0].text).toContain("new");
   });
 
   it("reports counts for the status action", async () => {
@@ -67,7 +85,8 @@ describe("todo tool", () => {
     const call = toolOn(memoryTodo());
     await call({ action: "add", text: "root", id: "i1" });
     await call({ action: "add", text: "child", id: "i2", deps: ["i1"] });
-    const refused = await call({ action: "mark", id: "i2", status: "completed" });
-    expect(refused.details.error).toBe("todo-transition-refused");
+    await expect(call({ action: "mark", id: "i2", status: "completed" })).rejects.toThrow(
+      /todo-transition-refused/,
+    );
   });
 });

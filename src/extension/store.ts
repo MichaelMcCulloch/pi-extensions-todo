@@ -61,7 +61,7 @@ export class TodoStore {
       if (error instanceof TodoStateError) throw new TodoOperationError("todo-transition-refused", error.message);
       throw error;
     }
-    if (result.events.length === 0) return result;
+    if (!result.changed) return result;
     const violations = verifyTodoState(result.state);
     if (violations.length > 0) {
       throw new TodoOperationError(

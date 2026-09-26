@@ -65,6 +65,12 @@ export type TodoCommand =
 export interface TodoReduceResult {
   readonly state: TodoState;
   readonly events: readonly TodoEvent[];
+  /**
+   * Whether anything actually changed. A payload-only `edit` (text/note)
+   * produces no structural events but is still a real change and must be
+   * persisted; a true no-op is not.
+   */
+  readonly changed: boolean;
 }
 
 /** Why a command was refused before touching the verified relation. */
@@ -283,8 +289,13 @@ export function reduceTodoCommand(state: TodoState, command: TodoCommand): TodoR
   }
   const canonical = target === undefined ? canonicalize(next) : canonicalizeTo(next, target);
   const events = [...base, ...canonical.events];
+  const payloadChanged =
+    command.type === "edit" &&
+    ((command.text !== undefined && state.texts[command.id] !== command.text) ||
+      (command.note !== undefined && state.notes[command.id] !== command.note));
   return {
     state: { ...canonical.state, revision: state.revision + events.length },
     events,
+    changed: events.length > 0 || payloadChanged,
   };
 }
