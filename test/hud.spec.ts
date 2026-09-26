@@ -42,10 +42,10 @@ describe("TodoWidget", () => {
   it("fits every line and caps with a hint", () => {
     const widget = new TodoWidget(() => ["one", "two", "three", "four"], 2);
     const lines = widget.render(30);
-    // two kept + omission hint + separator
+    // separator + two kept + omission hint
     expect(lines).toHaveLength(4);
     for (const line of lines) expect(visibleWidth(line)).toBe(30);
-    expect(lines[2]).toContain("+2 more");
+    expect(lines[3]).toContain("+2 more");
   });
 
   it("renders nothing when empty", () => {
