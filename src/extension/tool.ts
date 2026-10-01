@@ -57,6 +57,7 @@ interface TodoDetails {
 /** Build the tool against a lazily constructed store. */
 export function buildTodoTool(getStore: (ctx: ExtensionContext) => TodoStore): ToolDefinition<typeof TodoParams, TodoDetails> {
   return {
+    namespace: { name: "todo", description: "Dependency-ordered task priorities" },
     name: "todo",
     label: "Todo",
     description:

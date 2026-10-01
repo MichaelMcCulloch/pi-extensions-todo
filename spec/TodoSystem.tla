@@ -178,6 +178,8 @@ Next ==
     \/ \E i \in Items, s \in Statuses \ {"absent"} : Mark(i, s)
     \/ \E i \in Items : Reopen(i)
 
+SafetySpec == Init /\ [][Next]_vars
+
 Spec == Init /\ [][Next]_vars
 
 \* ---------------------------------------------------------------------------

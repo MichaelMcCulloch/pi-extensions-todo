@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { buildTodoTool } from "../src/extension/tool.ts";
 import { memoryTodo } from "../src/extension/store.ts";
 
-const ctx = {} as ExtensionContext;
+const ctx = {} as ExtensionToolContext;
 
 function toolOn(store: ReturnType<typeof memoryTodo>) {
   const tool = buildTodoTool(() => store);

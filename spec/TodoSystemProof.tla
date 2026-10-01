@@ -30,7 +30,7 @@ CoreInv ==
 
 THEOREM SafetyCore ==
   ASSUME MaxPriority \in Nat, MaxSeq \in Nat
-  PROVE Spec => []CoreInv
+  PROVE SafetySpec => []CoreInv
 
   <1>1. Init => CoreInv
     BY SMT DEF TypeOK, WellFormed, SeqUnique, SeqBound, FinalSat,
@@ -227,6 +227,6 @@ THEOREM SafetyCore ==
       BY SMT, <2>1, <2>2, <2>3, <2>4, <2>5, <2>6, <2>7 DEF Next, vars
 
   <1>3. QED
-    BY <1>1, <1>2, PTL DEF Spec
+    BY <1>1, <1>2, PTL DEF SafetySpec
 
 =============================================================================
