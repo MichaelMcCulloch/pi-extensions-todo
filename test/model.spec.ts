@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   TODO_MODEL,
+  rankCertificate,
+  presentationCertificate,
   enabledEvents,
   initAbstractTodoState,
   linearize,
@@ -189,4 +191,17 @@ describe("abstract todo list (priority forest)", () => {
     const reopened = referenceReduceTodoState(state, { type: "reopen", item: "i1" }, TODO_MODEL);
     expect(reopened.status["i1"]).toBe("pending");
   });
+});
+
+it('certifies ranks and rejects full-length cycles and malformed presentations', () => {
+  const c={...TODO_MODEL,items:['i1','i2','i3']};
+  expect(rankCertificate(Object.fromEntries([['__proto__',[]]]),{...c,items:['__proto__']})?.['__proto__']).toBe(0);
+  expect(rankCertificate({i1:[],i2:['i1'],i3:['i2']},c)).toEqual({i1:0,i2:1,i3:2});
+  expect(rankCertificate({i1:['i3'],i2:['i1'],i3:['i2']},c)).toBeNull();
+  expect(rankCertificate({i1:['i1'],i2:[],i3:[]},c)).toBeNull();
+  expect(rankCertificate({i1:['unknown'],i2:[],i3:[]},c)).toBeNull();
+  const initial=initAbstractTodoState(c);
+  const s={...initial,status:{...initial.status,i1:'pending' as const,i2:'pending' as const},deps:{...initial.deps,i2:['i1']}};
+  expect(presentationCertificate(s,c,['i1','i2'])).toBe(true);
+  for (const order of [['i2','i1'],['i1'],['i1','i1'],['i1','i2','i3']]) expect(presentationCertificate(s,c,order)).toBe(false);
 });

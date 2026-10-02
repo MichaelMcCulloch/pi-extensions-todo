@@ -5,14 +5,9 @@
 \* component, so `Spec => []CoreInv` holds for arbitrary constants, not only
 \* the TLC fixture.
 \*
-\* Scope: `CoreInv` is the state-machine safety core — TypeOK, WellFormed,
-\* SeqUnique, SeqBound, FinalSat, InProgressSat. The definitional projection
-\* and heap invariants (`PresentationTopological`, `PresentationRange`,
-\* `LiveEdgeWithinHeap`, `HeapsAreClasses`) are properties of the recursive
-\* `Lin`/`Linked` definitions over every reachable state; TLC checks the full
-\* `ViewInv`, including those, over the complete reachable state space, and the
-\* executable model is cross-checked state-for-state. Acyclicity is enforced
-\* by the `GuardRewire` reachability guard; it is part of the TLC `ViewInv`.
+\* This module proves the core only. TodoAcyclicProof and TodoHeapProof
+\* strengthen it to full Inv. TodoPresentationProof proves the iterative
+\* presentation contract; the legacy recursive Lin remains TLC-checked.
 \*
 \* From spec/:
 \*   tlapm -I "$HOME/.local/tlapm/lib/tlapm/stdlib" TodoSystemProof.tla

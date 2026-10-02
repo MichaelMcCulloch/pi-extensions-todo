@@ -23,6 +23,8 @@ verification:
 > space of the fixture — **1,842,161 distinct states** — and checks the full
 > view invariant. `spec/TodoSystemProof.tla` proves `Spec => []CoreInv` with
 > TLAPS for arbitrary `Items`, `MaxPriority`, and `MaxSeq` (137 obligations).
+> Additional proofs cover acyclicity, heap partition and iterative presentation
+> under explicit finite-set and rank hypotheses.
 > The production store's transition is `referenceReduceTodoState`, the mirror
 > of the machine; `test/model.spec.ts` asserts the executable reachable-set
 > size equals TLC's, and `spec/TraceValidation.tla` replays real store traces.
@@ -119,9 +121,10 @@ TLC checks `ViewInv` over all 1,842,161 reachable states:
 
 ```bash
 pnpm verify:model     # TLC exhaustive check of the fixture (1,842,161 states)
+TLA_WORKERS=4 pnpm verify:model  # optional parallel TLC exploration
 pnpm verify:traces    # regenerate production traces and TLC-validate them
 pnpm verify:formal    # both
-pnpm verify:proof     # TLAPS inductive proof: Spec => []CoreInv for all constants
+pnpm verify:proof     # core, acyclicity, heaps and iterative presentation proofs
 pnpm verify           # typecheck + tests + TLC + traces + proof
 ```
 
@@ -149,17 +152,21 @@ for **arbitrary** `Items`, `MaxPriority`, and `MaxSeq`: `Init => CoreInv` and
 every action preserves `TypeOK`, `WellFormed`, `SeqUnique`, `SeqBound`,
 `FinalSat`, and `InProgressSat` (137 obligations, all discharged by tlapm).
 
-**Scope, stated honestly.** `CoreInv` is the state-machine safety core. The
-definitional projection and heap invariants (`PresentationTopological`,
-`PresentationRange`, `LiveEdgeWithinHeap`, `HeapsAreClasses`) are properties of
-the recursive `Lin`/`Linked` operators over every reachable state; they are
-verified by TLC over the complete reachable state space rather than
-inductively, because TLAPS cannot elaborate recursive operators — which is why
-the machine module is recursion-free and the presentation lives in
-`TodoView.tla`. Acyclicity is enforced by the `GuardRewire` reachability guard
-and checked by TLC; it is not in `CoreInv`. Liveness is deliberately out of
-scope: the machine has no autonomous actions and no fairness to assume, so the
-only progress claims are the totality and determinism of the presentation.
+`TodoAcyclicProof.tla` adds decreasing-rank certificates and induction over
+arbitrary finite paths, proving acyclicity for every finite item set and natural
+bound. `TodoHeapProof.tla` proves that closed-set connectivity is an equivalence
+relation and heaps partition the active items; `SafetyFull` establishes `[]Inv`.
+The guards construct and check the same rank contract before admitting dependency
+changes. The cycle definition includes paths of `Cardinality(Items)+1` vertices,
+so it covers a cycle through every item and one-item self-cycles.
+
+`TodoPresentationProof.tla` verifies the iterative Kahn presentation contract:
+a ready vertex exists whenever the finite remainder is nonempty, each placement
+strictly reduces it, and completed output contains every active item once with
+dependencies first. The runtime checks this output certificate and refuses a
+partial result. The legacy recursive `Lin` remains TLC-checked; a universal
+machine-checked equivalence between it, the iterative machine and TypeScript is
+not claimed. These safety proofs do not require scheduling fairness.
 
 ### How the proof reaches the implementation
 
@@ -250,3 +257,10 @@ refuses to persist a violating state.
 The sibling repositories are [`pi-agent-harness-dag`](../directed-acyclic-graph)
 and [`pi-message-board`](../message-board); this extension shares their
 spec-first methodology but is independent of both.
+
+### Pi 1.0 programmatic results
+
+Targets pi 1.0.0 with host SDK packages in peer dependencies. Public tools declare
+an output schema and return structured JSON to codemode while preserving their
+human-readable results. Mutating calls remain sequential and domain refusals
+remain errors. Widgets and overlays use the host TUI APIs, including fullscreen.

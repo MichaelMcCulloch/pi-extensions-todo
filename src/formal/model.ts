@@ -225,11 +225,20 @@ export function linearize(state: AbstractTodoState, config: TodoModelConfig): It
       if (blocked) continue;
       if (best === null || keyLE(state, item, best)) best = item;
     }
-    if (best === null) break; // unreachable while the graph is acyclic
+    if (best === null) throw new Error('todo-cycle-or-invalid-presentation');
     out.push(best);
     remaining.delete(best);
   }
+  if (!presentationCertificate(state,config,out)) throw new Error('todo-invalid-presentation-certificate');
   return out;
+}
+
+/** The independently checked output contract of the Kahn presentation machine. */
+export function presentationCertificate(state: AbstractTodoState, config: TodoModelConfig, order: readonly ItemId[]): boolean {
+  const active = new Set(activeItems(state,config));
+  const position = new Map(order.map((item,index) => [item,index+1]));
+  return order.length === active.size && position.size === order.length && order.every(item => active.has(item))
+    && order.every(item => (state.deps[item] ?? []).every(dep => !active.has(dep) || (position.get(dep)! > 0 && position.get(dep)! < position.get(item)!)));
 }
 
 /** Why a model step was refused. */
@@ -251,13 +260,31 @@ function sameDeps(a: readonly ItemId[], b: readonly ItemId[]): boolean {
   return a.length === b.length && a.every((item) => b.includes(item));
 }
 
+/** Construct and check a rank certificate before admitting changed dependencies. */
+export function rankCertificate(deps: Readonly<Record<ItemId, readonly ItemId[]>>, config: TodoModelConfig): Record<ItemId, number> | null {
+  const remaining = new Set(config.items), ranks: Record<ItemId, number> = Object.create(null);
+  while (remaining.size) {
+    let progress = false;
+    for (const item of remaining) {
+      const edges = deps[item] ?? [];
+      if (edges.some(dep => ranks[dep] === undefined)) continue;
+      const rank = edges.reduce((r, dep) => Math.max(r, ranks[dep]! + 1), 0);
+      if (!Number.isSafeInteger(rank) || rank > config.maxSeq) return null;
+      ranks[item] = rank; remaining.delete(item); progress = true;
+    }
+    if (!progress) return null;
+  }
+  return config.items.every(item => (deps[item] ?? []).every(dep => ranks[dep] !== undefined && ranks[dep]! < ranks[item]!)) ? ranks : null;
+}
+
 /** The guards, one per action. */
 export const guards = {
   add: (state: AbstractTodoState, config: TodoModelConfig, item: ItemId, deps: readonly ItemId[]): boolean =>
     (state.status[item] ?? "absent") === "absent" &&
     deps.every((dep) => isPresent(state, dep)) &&
     deps.every((dep) => dep !== item) &&
-    state.next <= config.maxSeq,
+    state.next <= config.maxSeq &&
+    rankCertificate({...state.deps,[item]:deps},config) !== null,
 
   remove: (state: AbstractTodoState, config: TodoModelConfig, item: ItemId): boolean =>
     isPresent(state, item) && activeItems(state, config).every((live) => !(state.deps[live] ?? []).includes(item)),
@@ -270,6 +297,7 @@ export const guards = {
     deps.every((dep) => isPresent(state, dep) && dep !== item) &&
     !sameDeps([...(state.deps[item] ?? [])].sort(), [...deps].sort()) &&
     deps.every((dep) => !reach(state, dep, item)) &&
+    rankCertificate({...state.deps,[item]:deps},config) !== null &&
     (state.status[item] !== "in_progress" ||
       deps.every((dep) => SUCCESS_STATUSES.includes(state.status[dep] ?? "absent"))),
 

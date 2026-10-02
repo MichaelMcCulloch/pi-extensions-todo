@@ -56,7 +56,7 @@ Sat(i) == \A d \in deps[i] : status[d] \in Success
 \* vertices exists whenever a path exists, and the invariant makes the graph
 \* acyclic, so a simple path is always enough.
 Reach(x, y) ==
-    \E n \in 2..Cardinality(Items) :
+    \E n \in 2..(Cardinality(Items)+1) :
         \E p \in [1..n -> Items] :
             /\ p[1] = x /\ p[n] = y
             /\ \A k \in 1..n-1 : p[k+1] \in deps[p[k]]
@@ -67,12 +67,10 @@ Reach(x, y) ==
 \* anything successful or in-progress depends on it).
 LiveEdge(x, y) == x \in Active /\ y \in Active /\ (y \in deps[x] \/ x \in deps[y])
 
-Linked(x, y) ==
-    x = y
-    \/ \E n \in 2..Cardinality(Items) :
-           \E p \in [1..n -> Items] :
-               /\ p[1] = x /\ p[n] = y
-               /\ \A k \in 1..n-1 : LiveEdge(p[k], p[k+1])
+\* Connectivity by closed-set membership. Unlike recursive walks, this
+\* characterization exposes equivalence directly to the proof checker.
+Closed(S) == S \subseteq Active /\ \A x \in S: \A y \in Active: LiveEdge(x,y) => y \in S
+Linked(x, y) == \A S \in SUBSET Active: Closed(S) => (x \in S <=> y \in S)
 
 HeapOf(i) == {j \in Active : Linked(i, j)}
 Heaps == {HeapOf(i) : i \in Active}
@@ -96,10 +94,18 @@ Init ==
 \* Guards
 \* ---------------------------------------------------------------------------
 
+\* A finite rank certificate is checked at every dependency-changing admission.
+RankCertificate(d, r) ==
+  r \in [Items -> 0..MaxSeq] /\ \A i \in Items: \A j \in d[i]: r[j] < r[i]
+Ranked(d) == \E r \in [Items -> 0..MaxSeq]: RankCertificate(d,r)
+
+\* Compare the certificate predicate to TRUE so TLC evaluates existence once,
+\* instead of generating a successor for every possible certificate.
 GuardAdd(i, D) ==
     /\ status[i] = "absent"
     /\ D \subseteq Present
     /\ next <= MaxSeq
+    /\ (Ranked([deps EXCEPT ![i] = D]) = TRUE)
 
 GuardRemove(i) ==
     /\ status[i] # "absent"
@@ -113,6 +119,7 @@ GuardRewire(i, D) ==
     /\ IsLive(i)
     /\ D \subseteq Present \ {i}
     /\ D # deps[i]
+    /\ (Ranked([deps EXCEPT ![i] = D]) = TRUE)
     /\ \A d \in D : ~Reach(d, i)
     \* An in-progress item may only be rewired onto already-satisfied deps,
     \* otherwise InProgressSat would be lost.

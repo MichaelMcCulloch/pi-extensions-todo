@@ -1,3 +1,4 @@
+import { Check } from 'typebox/value';
 import { describe, expect, it } from "vitest";
 import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { buildTodoTool } from "../src/extension/tool.ts";
@@ -7,7 +8,11 @@ const ctx = {} as ExtensionToolContext;
 
 function toolOn(store: ReturnType<typeof memoryTodo>) {
   const tool = buildTodoTool(() => store);
-  return (params: unknown) => tool.execute!("call", params as never, undefined, undefined, ctx);
+  return async (params: unknown) => {
+    const result=await tool.execute!("call", params as never, undefined, undefined, ctx);
+    expect(Check(tool.outputSchema!,result.structuredContent)).toBe(true);
+    return result;
+  };
 }
 
 describe("todo tool", () => {
@@ -26,6 +31,7 @@ describe("todo tool", () => {
     await call({ action: "add", text: "child", id: "i2", deps: ["i1"] });
     const listed = await call({ action: "list", theme: "light" });
     expect(listed.details.presentation).toEqual(["i1", "i2"]);
+    expect(listed.structuredContent).toMatchObject({presentation:["i1","i2"],heaps:[["i1","i2"]]});
     expect(listed.content[0]?.type === "text" && listed.content[0].text).toContain("waiting on i1");
   });
 

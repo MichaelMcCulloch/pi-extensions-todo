@@ -28,6 +28,8 @@ const vendorJar = resolve(specDir, "vendor/tla2tools.jar");
 const TLA_VERSION = "v1.8.0";
 const TLA_URL = `https://github.com/tlaplus/tlaplus/releases/download/${TLA_VERSION}/tla2tools.jar`;
 const MEMORY = process.env.TLA_JVM_MEMORY ?? "4g";
+const WORKERS = process.env.TLA_WORKERS ?? "1";
+if (!/^[1-9][0-9]*$/.test(WORKERS)) throw new Error("TLA_WORKERS must be a positive integer");
 
 const command = process.argv[2] ?? "all";
 
@@ -75,7 +77,9 @@ function tlcArgs(jar, module, config) {
     "-cp",
     `${jar}${delimiter}${generatedDir}`,
     "tlc2.TLC",
-    "-cleanup",
+    "-workers", WORKERS,
+    "-metadir",
+    resolve(specDir, "states", module.replace(/\.tla$/, "")),
     "-config",
     config,
     module,
@@ -93,7 +97,7 @@ function checkModel(java, jar) {
   if (result.status !== 0) throw new Error(`TLC failed for the model (exit ${result.status})`);
 
   const distinct = output.match(/([\d,]+)\s+states generated,\s*([\d,]+)\s+distinct states found/);
-  if (!distinct) throw new Error("TLC did not report a distinct-state count");
+  if (!distinct || !output.includes("Model checking completed. No error has been found.") || !/0 states left on queue\./.test(output)) throw new Error("TLC did not complete the entire model check");
   const count = Number(distinct[2].replaceAll(",", ""));
   writeFileSync(
     resolve(specDir, ".tlc-state-count.json"),

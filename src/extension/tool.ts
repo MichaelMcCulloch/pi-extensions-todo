@@ -56,7 +56,7 @@ interface TodoDetails {
 
 /** Build the tool against a lazily constructed store. */
 export function buildTodoTool(getStore: (ctx: ExtensionContext) => TodoStore): ToolDefinition<typeof TodoParams, TodoDetails> {
-  return {
+  const tool: ToolDefinition<typeof TodoParams, TodoDetails> = {
     namespace: { name: "todo", description: "Dependency-ordered task priorities" },
     name: "todo",
     label: "Todo",
@@ -108,14 +108,19 @@ export function buildTodoTool(getStore: (ctx: ExtensionContext) => TodoStore): T
         };
       } catch (error) {
         if (error instanceof TodoOperationError) {
-          // The agent runtime only marks a tool result as an error when
-          // `execute` throws; a refusal returned as ordinary content is
-          // reported to the model as success. Rethrow with the action and the
-          // stable code so the failure is visible and actionable.
+          // Throw refusals so model and codemode callers receive a failure.
           throw new TodoOperationError(error.code, `todo ${params.action} refused (${error.code}): ${error.message}`);
         }
         throw error;
       }
+    },
+  };
+  return {
+    ...tool,
+    outputSchema: Type.Object({action:Type.String(),revision:Type.Integer(),theme:Type.String(),presentation:Type.Optional(Type.Array(Type.String())),heaps:Type.Optional(Type.Array(Type.Array(Type.String()))),counts:Type.Optional(Type.Unknown()),events:Type.Optional(Type.Array(Type.String()))}),
+    async execute(...args) {
+      const result = await tool.execute(...args);
+      return {...result,structuredContent:JSON.parse(JSON.stringify(result.details))};
     },
   };
 }
